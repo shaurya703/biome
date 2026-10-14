@@ -25,6 +25,7 @@ use biome_languages::javascript::{JsEmbeddingKind, SvelteEmbeddingKind};
 use biome_languages::{DocumentFileSource, HtmlFileSource, JsFileSource, LanguageDb};
 use biome_parser::AnyParse;
 use biome_rowan::{AstNode, AstSeparatedList, TextRange, TokenText, WalkEvent};
+use camino::Utf8Path;
 use std::collections::VecDeque;
 
 /// A parsed embedded-language snippet, its source language, and its location
@@ -75,6 +76,26 @@ pub fn collect_embedded_data<'a>(
         collected_bindings.vue_directive_declarations,
         collect_embedded_elements(host_source, host_parse),
     )
+}
+
+/// Returns whether a binding, reference, or component lookup against the
+/// document at `path` can find anything.
+///
+/// Bindings and components are collected from an HTML-like host document
+/// only, and references are collected from the host template and from the
+/// snippets. A document that is not HTML-like and has no snippets, such as a
+/// plain JavaScript or TypeScript file, therefore answers every such lookup
+/// with "not found", and callers can skip the lookup.
+///
+/// Returns `false` when no document is stored for `path`.
+pub fn has_embedded_content(db: &dyn LanguageDb, path: &Utf8Path) -> bool {
+    let Some(file) = db.parsed_source_for_path(path) else {
+        return false;
+    };
+    db.source_from_index(file.document_source_index(db))
+        .is_some_and(|host_source| {
+            host_source.to_html_file_source().is_some() || !file.snippets(db).is_empty()
+        })
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -1897,5 +1918,100 @@ impl EmbeddedReferencesBuilder {
             self.visit_reference_identifier(reference.clone())?;
         }
         Some(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bindings::{InternedBindingTokenText, get_binding_by_name};
+    use crate::components::component_at;
+    use crate::references::{InternedReference, is_reference_used};
+    use crate::testing::{
+        TestDb, parse_html_source_with_js_snippet, parse_js_source, parse_vue_source, token_text,
+    };
+    use biome_db::ParsedSnippet;
+    use biome_js_parser::JsParserOptions;
+    use biome_rowan::TextSize;
+
+    #[test]
+    fn has_embedded_content_is_false_for_a_plain_script() {
+        let db = TestDb::new();
+        let source = "import Component from \"./Component.vue\"; Component;";
+        let path = parse_js_source(&db, source, Vec::new());
+
+        assert!(!has_embedded_content(&db, &path));
+
+        // The lookups that a `false` answer lets callers skip find nothing.
+        assert!(
+            get_binding_by_name(
+                &db,
+                InternedBindingTokenText::new(&db, path.clone(), token_text("Component"))
+            )
+            .is_none()
+        );
+        assert!(!is_reference_used(
+            &db,
+            InternedReference::new(&db, path.clone(), token_text("Component"))
+        ));
+        let whole_file = TextRange::up_to(TextSize::of(source));
+        assert!(component_at(&db, &path, whole_file).is_none());
+    }
+
+    #[test]
+    fn has_embedded_content_is_false_for_an_unknown_path() {
+        let db = TestDb::new();
+
+        assert!(!has_embedded_content(&db, Utf8Path::new("src/missing.js")));
+    }
+
+    #[test]
+    fn has_embedded_content_is_true_for_an_html_like_host() {
+        let db = TestDb::new();
+        let path = parse_vue_source(&db, "<template><Component /></template>");
+
+        assert!(has_embedded_content(&db, &path));
+    }
+
+    #[test]
+    fn has_embedded_content_is_true_for_an_html_host_with_a_snippet() {
+        let db = TestDb::new();
+        let js = "const schema = {};";
+        let path = parse_html_source_with_js_snippet(
+            &db,
+            &format!(r#"<script type="module">{js}</script>"#),
+            js,
+        );
+
+        assert!(has_embedded_content(&db, &path));
+    }
+
+    #[test]
+    fn has_embedded_content_is_true_for_a_script_with_a_snippet() {
+        let db = TestDb::new();
+        let source = "const used = 1; html`${used}`;";
+        let snippet_parse = biome_js_parser::parse(
+            "used",
+            JsFileSource::js_module(),
+            JsParserOptions::default(),
+        )
+        .into();
+        let content_start = TextSize::from(source.find("${used}").unwrap() as u32 + 2);
+        let content_range = TextRange::at(content_start, TextSize::of("used"));
+        let snippet = ParsedSnippet::new(
+            &db,
+            snippet_parse,
+            content_range,
+            content_range,
+            content_start,
+            3,
+        );
+        let path = parse_js_source(&db, source, vec![snippet]);
+
+        assert!(has_embedded_content(&db, &path));
+        assert!(is_reference_used(
+            &db,
+            InternedReference::new(&db, path, token_text("used"))
+        ));
     }
 }
