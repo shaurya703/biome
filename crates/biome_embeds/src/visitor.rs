@@ -87,7 +87,9 @@ pub fn collect_embedded_data<'a>(
 /// plain JavaScript or TypeScript file, therefore answers every such lookup
 /// with "not found", and callers can skip the lookup.
 ///
-/// Returns `false` when no document is stored for `path`.
+/// Returns `false` when no document is stored for `path`, or when the
+/// language of the stored document cannot be resolved. Lookups find nothing
+/// in both cases.
 pub fn has_embedded_content(db: &dyn LanguageDb, path: &Utf8Path) -> bool {
     let Some(file) = db.parsed_source_for_path(path) else {
         return false;

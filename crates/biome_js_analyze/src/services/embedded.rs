@@ -177,3 +177,124 @@ impl FromServices for EmbeddedService {
         Ok(service.clone())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use biome_db::testing::Events;
+    use biome_db::{ParsedSnippet, ParsedSource};
+    use biome_js_parser::{JsParserOptions, parse};
+    use biome_languages::{DocumentFileSource, JsFileSource};
+    use biome_rowan::RawSyntaxKind;
+    use camino::Utf8Path;
+    use salsa::{EventKind, Storage};
+
+    #[salsa::db]
+    struct TestDb {
+        parsed: Option<ParsedSource>,
+        storage: Storage<Self>,
+    }
+
+    impl TestDb {
+        fn new(events: Events) -> Self {
+            Self {
+                parsed: None,
+                storage: Storage::new(Some(Box::new(move |event| {
+                    events.0.lock().unwrap().push(event)
+                }))),
+            }
+        }
+    }
+
+    #[salsa::db]
+    impl LanguageDb for TestDb {
+        fn source_from_index(&self, _index: usize) -> Option<DocumentFileSource> {
+            Some(DocumentFileSource::Js(JsFileSource::js_module()))
+        }
+    }
+
+    #[salsa::db]
+    impl biome_db::Db for TestDb {
+        fn parsed_source_for_path(&self, _path: &Utf8Path) -> Option<ParsedSource> {
+            self.parsed
+        }
+    }
+
+    #[salsa::db]
+    impl salsa::Database for TestDb {}
+
+    /// Builds the service for a JavaScript module and returns it with the
+    /// event log of its database. Each entry of `snippets` becomes an embedded
+    /// snippet at its last occurrence in `source`.
+    fn service_for(source: &str, snippets: &[&str]) -> (EmbeddedService, Events) {
+        let events = Events::default();
+        let mut db = TestDb::new(events.clone());
+        let snippets = snippets
+            .iter()
+            .map(|snippet| {
+                let start = TextSize::from(source.rfind(snippet).unwrap() as u32);
+                let range = TextRange::at(start, TextSize::of(*snippet));
+                let parsed = parse(
+                    snippet,
+                    JsFileSource::js_module(),
+                    JsParserOptions::default(),
+                )
+                .into();
+                ParsedSnippet::new(&db, parsed, range, range, start, 0)
+            })
+            .collect();
+        let path = Utf8PathBuf::from("src/file.js");
+        let parsed = parse(
+            source,
+            JsFileSource::js_module(),
+            JsParserOptions::default(),
+        )
+        .into();
+        db.parsed = Some(ParsedSource::new(&db, path.clone(), parsed, 0, snippets));
+
+        let service = EmbeddedService::new(Rc::new(db), path, TextSize::default());
+        (service, events)
+    }
+
+    fn token_text(text: &str) -> TokenText {
+        TokenText::new_raw(RawSyntaxKind(0), text)
+    }
+
+    #[test]
+    fn document_without_embedded_content_answers_without_the_database() {
+        let source = "const used = 1; used;";
+        let (service, events) = service_for(source, &[]);
+        events.0.lock().unwrap().clear();
+
+        assert!(!service.contains_binding(token_text("used")));
+        assert!(!service.contains_binding_text("used"));
+        assert!(!service.is_used(token_text("used")));
+        assert!(!service.is_used_as_value(token_text("used")));
+        assert!(!service.is_used_as_type(token_text("used")));
+        assert!(!service.is_svelte_store_used(token_text("used")));
+        assert!(!service.is_vue_directive_used(token_text("vUsed")));
+        assert!(
+            service
+                .component_at(TextRange::up_to(TextSize::of(source)))
+                .is_none()
+        );
+
+        let events = events.0.lock().unwrap();
+        let database_work = events.iter().find(|event| {
+            matches!(
+                event.kind,
+                EventKind::WillExecute { .. } | EventKind::DidInternValue { .. }
+            )
+        });
+        assert!(database_work.is_none(), "{database_work:?}");
+    }
+
+    #[test]
+    fn document_with_a_snippet_finds_its_references() {
+        let (service, _) = service_for("const used = 1; html`${used}`;", &["used"]);
+
+        assert!(service.is_used(token_text("used")));
+        assert!(service.is_used_as_value(token_text("used")));
+        assert!(!service.is_used(token_text("missing")));
+    }
+}
