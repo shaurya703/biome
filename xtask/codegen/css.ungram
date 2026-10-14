@@ -778,6 +778,7 @@ AnyCssCustomPropertyComponent =
 	CssCustomIdentifier
 	| CssNumber
 	| AnyCssDimension
+	| CssColor
 	| CssString
 	| ScssInterpolatedString
 	| ScssInterpolation

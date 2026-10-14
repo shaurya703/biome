@@ -9,6 +9,7 @@ impl FormatRule<AnyCssCustomPropertyComponent> for FormatAnyCssCustomPropertyCom
     fn fmt(&self, node: &AnyCssCustomPropertyComponent, f: &mut CssFormatter) -> FormatResult<()> {
         match node {
             AnyCssCustomPropertyComponent::AnyCssDimension(node) => node.format().fmt(f),
+            AnyCssCustomPropertyComponent::CssColor(node) => node.format().fmt(f),
             AnyCssCustomPropertyComponent::CssCustomIdentifier(node) => node.format().fmt(f),
             AnyCssCustomPropertyComponent::CssCustomPropertyBracedBlock(node) => {
                 node.format().fmt(f)

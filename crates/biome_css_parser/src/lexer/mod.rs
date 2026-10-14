@@ -1800,6 +1800,46 @@ impl<'src> CssLexer<'src> {
         })
     }
 
+    /// Returns whether `start` begins a complete hexadecimal color: `#`
+    /// followed by 3, 4, 6 or 8 hexadecimal digits that are not continued by
+    /// an identifier character or interpolation.
+    ///
+    /// The raw custom-property lexer would otherwise split a digit-led
+    /// spelling such as `#4566a8` into `#` and the dimension `4566a8`, whose
+    /// unit `a8` is not a unit at all.
+    ///
+    /// ```scss
+    /// --color: #4566a8;
+    /// --alpha: #4566a8ff;
+    /// --string: #4566a8px;
+    /// --interpolated: #abc#{$suffix};
+    /// ```
+    pub(crate) fn is_at_custom_property_hex_color(&self, start: usize) -> bool {
+        let bytes = self.source().as_bytes();
+        if bytes.get(start) != Some(&b'#') {
+            return false;
+        }
+
+        let digits_start = start + 1;
+        let mut end = digits_start;
+        while bytes.get(end).is_some_and(u8::is_ascii_hexdigit) {
+            end += 1;
+        }
+        if !matches!(end - digits_start, 3 | 4 | 6 | 8) {
+            return false;
+        }
+
+        match bytes.get(end) {
+            None => true,
+            Some(b'#') => bytes.get(end + 1) != Some(&b'{'),
+            Some(byte) => {
+                !(byte.is_ascii_alphanumeric()
+                    || matches!(byte, b'_' | b'-' | b'\\')
+                    || !byte.is_ascii())
+            }
+        }
+    }
+
     pub(crate) fn has_pending_scss_string_start(&self) -> bool {
         self.pending_scss_string_start.is_some()
     }

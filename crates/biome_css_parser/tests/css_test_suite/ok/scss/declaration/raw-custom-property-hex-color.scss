@@ -1,0 +1,18 @@
+$suffix: G;
+
+:root {
+  --digit-led: #4566a8;
+  --letter-led: #ff0000;
+  --short: #abc;
+  --short-alpha: #ABCD;
+  --long-alpha: #4566a8ff;
+  --five-digits: #12345;
+  --unit-tail: #12px;
+  --ident-tail: #4566a8px;
+  --hyphen-tail: #4566a8-x;
+  --interpolated: #abc#{$suffix};
+  --list: #4566a8, #ff0000;
+  --nested: fn(#4566a8);
+  --important: #4566a8 !important;
+  color: #4566a8;
+}

@@ -3,3 +3,11 @@ $size: 10px;
 .element {
   width: $size;
 }
+
+/* #12332: digit-led hex colours in custom properties are colours, not dimensions */
+.custom-property-colors {
+  --digit-led: #4566a8;
+  --letter-led: #ff0000;
+  --with-alpha: #4566a8ff;
+  --list: #4566a8, #ff0000;
+}

@@ -10,6 +10,8 @@ $name:theme;
 --number-spelling:.50;
 --known-dimension:1PX;
 --unknown-dimension:2FoO;
+--hex-color:#4566A8;
+--hex-color-list:#ABC,#4566a8ff;
 --percentage:50%;
 --interpolated-number:#{$gap + .50};
 --interpolated-dimension:#{$gap + 1PX};

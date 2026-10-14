@@ -156,6 +156,13 @@ impl<'src> CssTokenSource<'src> {
         self.lexer.lexer().is_scss_raw_url_body(start)
     }
 
+    /// Returns whether the current token starts a complete hexadecimal
+    /// color such as `#4566a8`.
+    pub(crate) fn is_at_custom_property_hex_color(&self) -> bool {
+        let start = usize::from(self.current_range().start());
+        self.lexer.lexer().is_at_custom_property_hex_color(start)
+    }
+
     /// Returns whether the current token starts a final custom-property
     /// `!important` under the active raw-value comment policy.
     pub(crate) fn is_at_final_custom_property_important(

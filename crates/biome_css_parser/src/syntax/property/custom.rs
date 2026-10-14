@@ -246,6 +246,8 @@ fn parse_custom_property_component(
         parse_any_dimension(p, context)
     } else if p.at(CSS_NUMBER_LITERAL) {
         parse_number(p, context)
+    } else if is_at_custom_property_color(p) {
+        parse_custom_property_color(p, context)
     } else if p.at_ts(CUSTOM_PROPERTY_BLOCK_START_SET) {
         parse_custom_property_block(p, comment_mode, nested_end_set, legacy_filter_recovery)
     } else if is_at_identifier(p) {
@@ -253,6 +255,31 @@ fn parse_custom_property_component(
     } else {
         parse_custom_property_delimiter(p, context)
     }
+}
+
+/// Returns whether a complete hexadecimal color such as `#4566a8` starts here.
+#[inline]
+fn is_at_custom_property_color(p: &mut CssParser) -> bool {
+    p.at(T![#]) && p.source().is_at_custom_property_hex_color()
+}
+
+/// Parses a complete hexadecimal color in a raw custom-property value.
+///
+/// Without this branch `#` is a lone delimiter and the raw lexer reads the
+/// digits after it on their own, so a digit-led color such as `#4566a8`
+/// becomes the dimension `4566` with the bogus unit `a8`.
+///
+/// Example: `--brand: #4566a8;`.
+fn parse_custom_property_color(p: &mut CssParser, context: CssLexContext) -> ParsedSyntax {
+    if !is_at_custom_property_color(p) {
+        return Absent;
+    }
+
+    let m = p.start();
+    p.bump_with_context(T![#], CssLexContext::Color);
+    p.bump_with_context(CSS_COLOR_LITERAL, context);
+
+    Present(m.complete(p, CSS_COLOR))
 }
 
 /// Returns whether a source-tight raw function such as `url(` starts here.

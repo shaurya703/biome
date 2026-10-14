@@ -55,6 +55,7 @@ impl Format<CssFormatContext> for FormatLegacyFilterComponent<'_> {
 
         match self.0 {
             AnyCssCustomPropertyComponent::AnyCssDimension(node) => node.format().fmt(f),
+            AnyCssCustomPropertyComponent::CssColor(node) => node.format().fmt(f),
             AnyCssCustomPropertyComponent::CssCustomIdentifier(node) => node.format().fmt(f),
             AnyCssCustomPropertyComponent::CssCustomPropertyBracedBlock(node) => {
                 FormatLegacyFilterBracedBlock(node).fmt(f)

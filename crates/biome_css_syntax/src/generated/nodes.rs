@@ -15112,6 +15112,7 @@ impl AnyCssCustomMediaQuery {
 #[derive(Clone, PartialEq, Eq, Hash, Serialize)]
 pub enum AnyCssCustomPropertyComponent {
     AnyCssDimension(AnyCssDimension),
+    CssColor(CssColor),
     CssCustomIdentifier(CssCustomIdentifier),
     CssCustomPropertyBracedBlock(CssCustomPropertyBracedBlock),
     CssCustomPropertyBracketedBlock(CssCustomPropertyBracketedBlock),
@@ -15127,6 +15128,12 @@ impl AnyCssCustomPropertyComponent {
     pub fn as_any_css_dimension(&self) -> Option<&AnyCssDimension> {
         match &self {
             Self::AnyCssDimension(item) => Some(item),
+            _ => None,
+        }
+    }
+    pub fn as_css_color(&self) -> Option<&CssColor> {
+        match &self {
+            Self::CssColor(item) => Some(item),
             _ => None,
         }
     }
@@ -38748,6 +38755,11 @@ impl From<AnyCssCustomMediaQuery> for SyntaxElement {
         node.into()
     }
 }
+impl From<CssColor> for AnyCssCustomPropertyComponent {
+    fn from(node: CssColor) -> Self {
+        Self::CssColor(node)
+    }
+}
 impl From<CssCustomIdentifier> for AnyCssCustomPropertyComponent {
     fn from(node: CssCustomIdentifier) -> Self {
         Self::CssCustomIdentifier(node)
@@ -38801,6 +38813,7 @@ impl From<ScssInterpolation> for AnyCssCustomPropertyComponent {
 impl AstNode for AnyCssCustomPropertyComponent {
     type Language = Language;
     const KIND_SET: SyntaxKindSet<Language> = AnyCssDimension::KIND_SET
+        .union(CssColor::KIND_SET)
         .union(CssCustomIdentifier::KIND_SET)
         .union(CssCustomPropertyBracedBlock::KIND_SET)
         .union(CssCustomPropertyBracketedBlock::KIND_SET)
@@ -38813,7 +38826,8 @@ impl AstNode for AnyCssCustomPropertyComponent {
         .union(ScssInterpolation::KIND_SET);
     fn can_cast(kind: SyntaxKind) -> bool {
         match kind {
-            CSS_CUSTOM_IDENTIFIER
+            CSS_COLOR
+            | CSS_CUSTOM_IDENTIFIER
             | CSS_CUSTOM_PROPERTY_BRACED_BLOCK
             | CSS_CUSTOM_PROPERTY_BRACKETED_BLOCK
             | CSS_CUSTOM_PROPERTY_DELIMITER
@@ -38829,6 +38843,7 @@ impl AstNode for AnyCssCustomPropertyComponent {
     }
     fn cast(syntax: SyntaxNode) -> Option<Self> {
         let res = match syntax.kind() {
+            CSS_COLOR => Self::CssColor(CssColor { syntax }),
             CSS_CUSTOM_IDENTIFIER => Self::CssCustomIdentifier(CssCustomIdentifier { syntax }),
             CSS_CUSTOM_PROPERTY_BRACED_BLOCK => {
                 Self::CssCustomPropertyBracedBlock(CssCustomPropertyBracedBlock { syntax })
@@ -38864,6 +38879,7 @@ impl AstNode for AnyCssCustomPropertyComponent {
     }
     fn syntax(&self) -> &SyntaxNode {
         match self {
+            Self::CssColor(it) => it.syntax(),
             Self::CssCustomIdentifier(it) => it.syntax(),
             Self::CssCustomPropertyBracedBlock(it) => it.syntax(),
             Self::CssCustomPropertyBracketedBlock(it) => it.syntax(),
@@ -38879,6 +38895,7 @@ impl AstNode for AnyCssCustomPropertyComponent {
     }
     fn into_syntax(self) -> SyntaxNode {
         match self {
+            Self::CssColor(it) => it.into_syntax(),
             Self::CssCustomIdentifier(it) => it.into_syntax(),
             Self::CssCustomPropertyBracedBlock(it) => it.into_syntax(),
             Self::CssCustomPropertyBracketedBlock(it) => it.into_syntax(),
@@ -38897,6 +38914,7 @@ impl std::fmt::Debug for AnyCssCustomPropertyComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::AnyCssDimension(it) => std::fmt::Debug::fmt(it, f),
+            Self::CssColor(it) => std::fmt::Debug::fmt(it, f),
             Self::CssCustomIdentifier(it) => std::fmt::Debug::fmt(it, f),
             Self::CssCustomPropertyBracedBlock(it) => std::fmt::Debug::fmt(it, f),
             Self::CssCustomPropertyBracketedBlock(it) => std::fmt::Debug::fmt(it, f),
@@ -38914,6 +38932,7 @@ impl From<AnyCssCustomPropertyComponent> for SyntaxNode {
     fn from(n: AnyCssCustomPropertyComponent) -> Self {
         match n {
             AnyCssCustomPropertyComponent::AnyCssDimension(it) => it.into_syntax(),
+            AnyCssCustomPropertyComponent::CssColor(it) => it.into_syntax(),
             AnyCssCustomPropertyComponent::CssCustomIdentifier(it) => it.into_syntax(),
             AnyCssCustomPropertyComponent::CssCustomPropertyBracedBlock(it) => it.into_syntax(),
             AnyCssCustomPropertyComponent::CssCustomPropertyBracketedBlock(it) => it.into_syntax(),
