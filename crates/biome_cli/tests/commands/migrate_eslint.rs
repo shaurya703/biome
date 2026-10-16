@@ -1017,3 +1017,50 @@ fn migrate_vitest_consistent_test_it_with_options() {
         result,
     ));
 }
+
+#[test]
+fn migrate_one_var() {
+    // Only `never` matches `useSingleVarDeclarator`; the default `always` requires the opposite.
+    let biomejson = r#"{ "linter": { "enabled": true } }"#;
+    let eslintrc = r#"{
+        "rules": {
+            "one-var": "error"
+        },
+        "overrides": [{
+            "files": "never.js",
+            "rules": {
+                "one-var": ["error", "never"]
+            }
+        }, {
+            "files": "kinds.js",
+            "rules": {
+                "one-var": ["error", { "var": "never", "let": "never", "const": "never" }]
+            }
+        }, {
+            "files": "mixed.js",
+            "rules": {
+                "one-var": ["error", { "initialized": "never", "uninitialized": "always" }]
+            }
+        }]
+    }"#;
+
+    let fs = MemoryFileSystem::default();
+    fs.insert(Utf8Path::new("biome.json").into(), biomejson.as_bytes());
+    fs.insert(Utf8Path::new(".eslintrc.json").into(), eslintrc.as_bytes());
+
+    let mut console = BufferConsole::default();
+    let (fs, result) = run_cli(
+        fs,
+        &mut console,
+        Args::from(["migrate", "eslint", "--write"].as_slice()),
+    );
+
+    assert!(result.is_ok(), "run_cli returned {result:?}");
+    assert_cli_snapshot(SnapshotPayload::new(
+        module_path!(),
+        "migrate_one_var",
+        fs,
+        console,
+        result,
+    ));
+}

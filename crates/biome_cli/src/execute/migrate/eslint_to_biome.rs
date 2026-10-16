@@ -997,6 +997,21 @@ fn migrate_eslint_rule(
                 }
             }
         }
+        eslint_eslint::Rule::OneVar(conf) => {
+            // `useSingleVarDeclarator` requires a separate declaration per variable,
+            // which `one-var` only does with `never`. Its default, `always`, requires the opposite.
+            let requires_single_declarators = match &conf {
+                eslint_eslint::RuleConf::Option(_, options) => {
+                    options.requires_single_declarators()
+                }
+                _ => false,
+            };
+            if requires_single_declarators {
+                let _ = migrate_eslint_any_rule(rules, &name, conf.severity(), opts, results);
+            } else {
+                results.add(&name, RuleMigrationResult::Unsupported);
+            }
+        }
         eslint_eslint::Rule::ReactForbidElements(conf) => {
             if migrate_eslint_any_rule(rules, &name, conf.severity(), opts, results)
                 && !matches!(conf.severity(), eslint_eslint::Severity::Off)
@@ -1838,6 +1853,111 @@ mod tests {
                 .get(&EslintRuleName::from_str("svelte/block-lang")),
             Some(&UnsupportedRuleReason::NotApplicable),
         );
+    }
+
+    #[test]
+    fn one_var_migrates_only_never() {
+        for (conf, expected_migrated) in [
+            // The ESLint default is `always`, which `useSingleVarDeclarator` contradicts.
+            (RuleConf::Severity(Severity::Error), false),
+            (
+                RuleConf::Option(Severity::Error, OneVarOptions::Mode(OneVarMode::Always)),
+                false,
+            ),
+            (
+                RuleConf::Option(
+                    Severity::Error,
+                    OneVarOptions::Mode(OneVarMode::Consecutive),
+                ),
+                false,
+            ),
+            (
+                RuleConf::Option(Severity::Error, OneVarOptions::Mode(OneVarMode::Never)),
+                true,
+            ),
+            (
+                RuleConf::Option(
+                    Severity::Error,
+                    OneVarOptions::ByKind(OneVarKindOptions {
+                        var: Some(OneVarMode::Never),
+                        let_: Some(OneVarMode::Never),
+                        const_: Some(OneVarMode::Never),
+                        ..Default::default()
+                    }),
+                ),
+                true,
+            ),
+            (
+                RuleConf::Option(
+                    Severity::Error,
+                    OneVarOptions::ByKind(OneVarKindOptions {
+                        initialized: Some(OneVarMode::Never),
+                        uninitialized: Some(OneVarMode::Never),
+                        ..Default::default()
+                    }),
+                ),
+                true,
+            ),
+            (
+                RuleConf::Option(
+                    Severity::Error,
+                    OneVarOptions::ByKind(OneVarKindOptions {
+                        var: Some(OneVarMode::Never),
+                        let_: Some(OneVarMode::Always),
+                        ..Default::default()
+                    }),
+                ),
+                false,
+            ),
+            (
+                RuleConf::Option(
+                    Severity::Error,
+                    OneVarOptions::ByKind(OneVarKindOptions {
+                        initialized: Some(OneVarMode::Never),
+                        uninitialized: Some(OneVarMode::Consecutive),
+                        ..Default::default()
+                    }),
+                ),
+                false,
+            ),
+            // An empty object configures no declaration kind, so ESLint checks nothing.
+            (
+                RuleConf::Option(
+                    Severity::Error,
+                    OneVarOptions::ByKind(OneVarKindOptions::default()),
+                ),
+                false,
+            ),
+        ] {
+            let rules = Rules([Rule::OneVar(conf)].into_iter().collect());
+            let mut results = MigrationResults::default();
+            let rules = rules.into_biome_rules(
+                &Default::default(),
+                &MigrationOptions::default(),
+                &mut results,
+            );
+            let rule = rules
+                .style
+                .and_then(|group| group.unwrap_group().use_single_var_declarator);
+            let name = EslintRuleName::from_str("one-var");
+            if expected_migrated {
+                assert_eq!(
+                    rule,
+                    Some(biome_config::RuleFixConfiguration::Plain(
+                        biome_config::RulePlainConfiguration::Error
+                    ))
+                );
+                assert!(results.migrated.contains(&name));
+                assert!(results.unsupported.is_empty());
+            } else {
+                assert_eq!(rule, None);
+                assert!(results.migrated.is_empty());
+                assert_eq!(
+                    results.unsupported.get(&name),
+                    Some(&UnsupportedRuleReason::KnownSourceNotImplemented)
+                );
+            }
+        }
     }
 
     #[test]

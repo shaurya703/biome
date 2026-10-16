@@ -1,0 +1,58 @@
+{
+  "biome": {},
+  "eslint": {
+    "rules": {
+      "one-var": ["error", "never"]
+    },
+    "overrides": [
+      {
+        "files": "severity_only.js",
+        "rules": {
+          "one-var": "error"
+        }
+      },
+      {
+        "files": "always.js",
+        "rules": {
+          "one-var": ["error", "always"]
+        }
+      },
+      {
+        "files": "consecutive.js",
+        "rules": {
+          "one-var": ["error", "consecutive"]
+        }
+      },
+      {
+        "files": "kinds_never.js",
+        "rules": {
+          "one-var": ["warn", { "var": "never", "let": "never", "const": "never" }]
+        }
+      },
+      {
+        "files": "initialized_never.js",
+        "rules": {
+          "one-var": ["error", { "initialized": "never", "uninitialized": "never" }]
+        }
+      },
+      {
+        "files": "mixed.js",
+        "rules": {
+          "one-var": ["error", { "var": "never", "let": "always" }]
+        }
+      },
+      {
+        "files": "empty.js",
+        "rules": {
+          "one-var": ["error", {}]
+        }
+      },
+      {
+        "files": "off.js",
+        "rules": {
+          "one-var": ["off", "never"]
+        }
+      }
+    ]
+  }
+}

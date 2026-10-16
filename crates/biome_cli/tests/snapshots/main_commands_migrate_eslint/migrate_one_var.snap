@@ -1,0 +1,88 @@
+---
+source: crates/biome_cli/tests/snap_test.rs
+expression: redactor(content)
+---
+## Command
+
+```shell
+biome migrate eslint --write
+```
+
+## `biome.json`
+
+```json
+{
+  "linter": { "enabled": true, "rules": { "preset": "none" } },
+  "overrides": [
+    {
+      "includes": ["never.js"],
+      "linter": { "rules": { "style": { "useSingleVarDeclarator": "error" } } }
+    },
+    {
+      "includes": ["kinds.js"],
+      "linter": { "rules": { "style": { "useSingleVarDeclarator": "error" } } }
+    },
+    { "includes": ["mixed.js"], "linter": { "rules": {} } }
+  ]
+}
+```
+
+## `.eslintrc.json`
+
+```json
+{
+        "rules": {
+            "one-var": "error"
+        },
+        "overrides": [{
+            "files": "never.js",
+            "rules": {
+                "one-var": ["error", "never"]
+            }
+        }, {
+            "files": "kinds.js",
+            "rules": {
+                "one-var": ["error", { "var": "never", "let": "never", "const": "never" }]
+            }
+        }, {
+            "files": "mixed.js",
+            "rules": {
+                "one-var": ["error", { "initialized": "never", "uninitialized": "always" }]
+            }
+        }]
+    }
+```
+
+# Emitted Messages
+
+```block
+migrate ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i 2 ESLint rules found
+    - 1 have been migrated to Biome's rules
+    - 50% (1) of your ESLint rules are fully covered by Biome
+      - 50% (1) via direct migration to Biome rules
+  
+  
+  i Migrated rules:
+  
+  - one-var
+  
+  i Unsupported rules (0 incompatible with formatter, 0 made obsolete by the formatter, 0 covered by a formatter option, 1 not yet implemented, 0 unknown source):
+  
+  i These rules have not yet been implemented:
+  
+  - one-var
+  
+
+```
+
+```block
+configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  i Migration results:
+  
+  - biome.json: configuration successfully migrated.
+  
+
+```
