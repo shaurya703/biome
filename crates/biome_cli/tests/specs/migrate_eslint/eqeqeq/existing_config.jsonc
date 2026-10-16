@@ -1,0 +1,19 @@
+{
+  "biome": {
+    "linter": {
+      "rules": {
+        "suspicious": {
+          "noDoubleEquals": {
+            "level": "warn",
+            "options": { "ignoreNull": true }
+          }
+        }
+      }
+    }
+  },
+  "eslint": {
+    "rules": {
+      "eqeqeq": "error"
+    }
+  }
+}

@@ -1,0 +1,44 @@
+---
+source: crates/biome_cli/src/execute/migrate/eslint_to_biome.rs
+expression: existing_config.jsonc
+---
+## ESLint Config
+
+```json
+{ "rules": { "eqeqeq": "error" } }
+
+```
+
+## Biome Config Before Migration
+
+```json
+{
+	"linter": {
+		"rules": {
+			"suspicious": {
+				"noDoubleEquals": { "level": "warn", "options": { "ignoreNull": true } }
+			}
+		}
+	}
+}
+
+```
+
+## Biome Config After Migration
+
+```json
+{
+	"linter": {
+		"rules": {
+			"preset": "none",
+			"suspicious": {
+				"noDoubleEquals": {
+					"level": "error",
+					"options": { "ignoreNull": false }
+				}
+			}
+		}
+	}
+}
+
+```

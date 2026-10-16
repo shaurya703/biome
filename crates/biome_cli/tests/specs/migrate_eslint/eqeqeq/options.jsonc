@@ -1,0 +1,58 @@
+{
+  "biome": {},
+  "eslint": {
+    "rules": {
+      "eqeqeq": "error"
+    },
+    "overrides": [
+      {
+        "files": "always.js",
+        "rules": {
+          "eqeqeq": ["error", "always"]
+        }
+      },
+      {
+        "files": "always_null_always.js",
+        "rules": {
+          "eqeqeq": ["warn", "always", { "null": "always" }]
+        }
+      },
+      {
+        "files": "always_null_ignore.js",
+        "rules": {
+          "eqeqeq": ["error", "always", { "null": "ignore" }]
+        }
+      },
+      {
+        "files": "always_null_never.js",
+        "rules": {
+          "eqeqeq": ["error", "always", { "null": "never" }]
+        }
+      },
+      {
+        "files": "always_empty_options.js",
+        "rules": {
+          "eqeqeq": ["error", "always", {}]
+        }
+      },
+      {
+        "files": "smart.js",
+        "rules": {
+          "eqeqeq": ["error", "smart"]
+        }
+      },
+      {
+        "files": "allow_null.js",
+        "rules": {
+          "eqeqeq": ["error", "allow-null"]
+        }
+      },
+      {
+        "files": "off.js",
+        "rules": {
+          "eqeqeq": ["off", "always"]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,169 @@
+---
+source: crates/biome_cli/src/execute/migrate/eslint_to_biome.rs
+expression: options.jsonc
+---
+## ESLint Config
+
+```json
+{
+	"overrides": [
+		{ "files": "always.js", "rules": { "eqeqeq": ["error", "always"] } },
+		{
+			"files": "always_null_always.js",
+			"rules": { "eqeqeq": ["warn", "always", { "null": "always" }] }
+		},
+		{
+			"files": "always_null_ignore.js",
+			"rules": { "eqeqeq": ["error", "always", { "null": "ignore" }] }
+		},
+		{
+			"files": "always_null_never.js",
+			"rules": { "eqeqeq": ["error", "always", { "null": "never" }] }
+		},
+		{
+			"files": "always_empty_options.js",
+			"rules": { "eqeqeq": ["error", "always", {}] }
+		},
+		{ "files": "smart.js", "rules": { "eqeqeq": ["error", "smart"] } },
+		{
+			"files": "allow_null.js",
+			"rules": { "eqeqeq": ["error", "allow-null"] }
+		},
+		{ "files": "off.js", "rules": { "eqeqeq": ["off", "always"] } }
+	],
+	"rules": { "eqeqeq": "error" }
+}
+
+```
+
+## Biome Config Before Migration
+
+```json
+{}
+
+```
+
+## Biome Config After Migration
+
+```json
+{
+	"linter": {
+		"rules": {
+			"preset": "none",
+			"suspicious": {
+				"noDoubleEquals": {
+					"level": "error",
+					"options": { "ignoreNull": false }
+				}
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["always.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "error",
+							"options": { "ignoreNull": false }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["always_null_always.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "warn",
+							"options": { "ignoreNull": false }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["always_null_ignore.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "error",
+							"options": { "ignoreNull": true }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["always_null_never.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "error",
+							"options": { "ignoreNull": true }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["always_empty_options.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "error",
+							"options": { "ignoreNull": false }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["smart.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "error",
+							"options": { "ignoreNull": true }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["allow_null.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "error",
+							"options": { "ignoreNull": true }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["off.js"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noDoubleEquals": {
+							"level": "off",
+							"options": { "ignoreNull": false }
+						}
+					}
+				}
+			}
+		}
+	]
+}
+
+```

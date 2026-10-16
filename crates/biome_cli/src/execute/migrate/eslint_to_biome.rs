@@ -802,6 +802,36 @@ fn migrate_eslint_rule(
                 }
             }
         }
+        eslint_eslint::Rule::Eqeqeq(conf) => {
+            if migrate_eslint_any_rule(rules, &name, conf.severity(), opts, results) {
+                let severity = conf.severity();
+                // The ESLint default reports `== null` while the Biome default ignores it,
+                // so the options are migrated even when ESLint only sets the severity.
+                let options = match conf {
+                    eslint_eslint::RuleConf::Severity(_)
+                    | eslint_eslint::RuleConf::Spread(_, _) => {
+                        eslint_eslint::EqeqeqOptions::default()
+                            .into_biome_options(eslint_eslint::EqeqeqMode::default())
+                    }
+                    eslint_eslint::RuleConf::Option(_, mode) => {
+                        eslint_eslint::EqeqeqOptions::default().into_biome_options(mode)
+                    }
+                    eslint_eslint::RuleConf::Options(_, mode, options) => {
+                        options.into_biome_options(mode)
+                    }
+                };
+                let group = rules.suspicious.get_or_insert_with(Default::default);
+                if let SeverityOrGroup::Group(group) = group {
+                    group.no_double_equals = Some(biome_config::RuleFixConfiguration::WithOptions(
+                        biome_config::RuleWithFixOptions {
+                            level: severity.into(),
+                            fix: None,
+                            options,
+                        },
+                    ));
+                }
+            }
+        }
         eslint_eslint::Rule::FuncStyle(conf) => {
             if migrate_eslint_any_rule(rules, &name, conf.severity(), opts, results) {
                 let severity = conf.severity();
@@ -1838,6 +1868,83 @@ mod tests {
                 .get(&EslintRuleName::from_str("svelte/block-lang")),
             Some(&UnsupportedRuleReason::NotApplicable),
         );
+    }
+
+    #[test]
+    fn eqeqeq_migrates_null_handling() {
+        for (conf, expected_ignore_null) in [
+            // The ESLint default reports `== null`, unlike the Biome default.
+            (RuleConf::Severity(Severity::Error), false),
+            (RuleConf::Option(Severity::Error, EqeqeqMode::Always), false),
+            (
+                RuleConf::Options(
+                    Severity::Error,
+                    EqeqeqMode::Always,
+                    EqeqeqOptions {
+                        null: Some(EqeqeqNullMode::Always),
+                    },
+                ),
+                false,
+            ),
+            (
+                RuleConf::Options(
+                    Severity::Error,
+                    EqeqeqMode::Always,
+                    EqeqeqOptions { null: None },
+                ),
+                false,
+            ),
+            (
+                RuleConf::Options(
+                    Severity::Error,
+                    EqeqeqMode::Always,
+                    EqeqeqOptions {
+                        null: Some(EqeqeqNullMode::Ignore),
+                    },
+                ),
+                true,
+            ),
+            // Biome cannot require `== null`; ignoring `null` is the closest configuration.
+            (
+                RuleConf::Options(
+                    Severity::Error,
+                    EqeqeqMode::Always,
+                    EqeqeqOptions {
+                        null: Some(EqeqeqNullMode::Never),
+                    },
+                ),
+                true,
+            ),
+            (RuleConf::Option(Severity::Error, EqeqeqMode::Smart), true),
+            (
+                RuleConf::Option(Severity::Error, EqeqeqMode::AllowNull),
+                true,
+            ),
+        ] {
+            let rules = Rules([Rule::Eqeqeq(conf)].into_iter().collect());
+            let mut results = MigrationResults::default();
+            let rules = rules.into_biome_rules(
+                &Default::default(),
+                &MigrationOptions::default(),
+                &mut results,
+            );
+            let rule = rules
+                .suspicious
+                .unwrap()
+                .unwrap_group()
+                .no_double_equals
+                .unwrap();
+            let biome_config::RuleFixConfiguration::WithOptions(rule) = rule else {
+                panic!("the migration should set the options of the rule");
+            };
+            assert_eq!(rule.level, biome_config::RulePlainConfiguration::Error);
+            assert_eq!(rule.options.ignore_null, Some(expected_ignore_null));
+            assert!(
+                results
+                    .migrated
+                    .contains(&EslintRuleName::from_str("eqeqeq"))
+            );
+        }
     }
 
     #[test]

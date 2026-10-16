@@ -8,6 +8,7 @@ use biome_deserialize::{
 };
 use biome_deserialize_macros::Deserializable;
 use biome_rowan::TextRange;
+use biome_rule_options::no_double_equals::NoDoubleEqualsOptions;
 use biome_rule_options::use_consistent_function_style::{
     FunctionStyle, UseConsistentFunctionStyleOptions,
 };
@@ -545,6 +546,11 @@ impl Deserializable for Rules {
                                 result.insert(Rule::ClassMethodsUseThis(conf));
                             }
                         }
+                        "eqeqeq" => {
+                            if let Some(conf) = RuleConf::deserialize(ctx, &value, name) {
+                                result.insert(Rule::Eqeqeq(conf));
+                            }
+                        }
                         "func-style" => {
                             if let Some(conf) = RuleConf::deserialize(ctx, &value, name) {
                                 result.insert(Rule::FuncStyle(conf));
@@ -867,6 +873,59 @@ impl FuncStyleOptions {
     }
 }
 
+/// The first option of `eqeqeq`.
+#[derive(Clone, Copy, Debug, Default, Deserializable)]
+pub(crate) enum EqeqeqMode {
+    /// Requires `===` and `!==` everywhere; `null` comparisons follow [`EqeqeqOptions::null`].
+    #[default]
+    Always,
+    /// Allows `==` and `!=` for `typeof` comparisons, comparisons between literals
+    /// of the same type, and `null` comparisons.
+    Smart,
+    /// Same as `always` with `{ "null": "ignore" }`.
+    #[deserializable(rename = "allow-null")]
+    AllowNull,
+}
+
+/// How `eqeqeq` treats comparisons with `null` when the mode is `always`.
+#[derive(Clone, Copy, Debug, Default, Deserializable)]
+pub(crate) enum EqeqeqNullMode {
+    /// Requires `=== null` and `!== null`.
+    #[default]
+    Always,
+    /// Requires `== null` and `!= null`.
+    Never,
+    /// Allows both.
+    Ignore,
+}
+
+/// The second option of `eqeqeq`, only accepted when the mode is `always`.
+#[derive(Debug, Default, Deserializable)]
+#[deserializable(unknown_fields = "allow")]
+pub(crate) struct EqeqeqOptions {
+    pub(crate) null: Option<EqeqeqNullMode>,
+}
+
+impl EqeqeqOptions {
+    /// Converts the options into `noDoubleEquals` options.
+    ///
+    /// `ignoreNull` is always set because the ESLint default (`always` with `{ "null": "always" }`)
+    /// reports `== null`, whereas the Biome default ignores it.
+    ///
+    /// Biome can neither require `== null` (`{ "null": "never" }`) nor exempt `typeof` and
+    /// same-type literal comparisons (`smart`); both fall back to ignoring `null` comparisons,
+    /// which is the closest Biome configuration that doesn't report code ESLint accepts.
+    pub(crate) fn into_biome_options(self, mode: EqeqeqMode) -> NoDoubleEqualsOptions {
+        let ignore_null = match mode {
+            EqeqeqMode::Always => !matches!(self.null.unwrap_or_default(), EqeqeqNullMode::Always),
+            EqeqeqMode::Smart | EqeqeqMode::AllowNull => true,
+        };
+        NoDoubleEqualsOptions {
+            ignore_null: Some(ignore_null),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct MaxNestedCallbacksOptions {
     max: Option<u8>,
@@ -1114,6 +1173,7 @@ pub(crate) enum Rule {
     // We use this to configure equivalent Bione's rules.
     ArrayCallbackReturn(RuleConf<ArrayCallbackReturnOptions>),
     ClassMethodsUseThis(RuleConf<ClassMethodsUseThisOptions>),
+    Eqeqeq(RuleConf<EqeqeqMode, EqeqeqOptions>),
     FuncStyle(RuleConf<FunctionStyle, FuncStyleOptions>),
     MaxNestedCallbacks(RuleConf<MaxNestedCallbacksOptions>),
     MaxStatements(RuleConf<MaxStatementsOptions, MaxStatementsTopLevelOptions>),
@@ -1154,6 +1214,7 @@ impl Rule {
             Self::Any(name, _) => name.clone(),
             Self::ArrayCallbackReturn(_) => Cow::Borrowed("array-callback-return"),
             Self::ClassMethodsUseThis(_) => Cow::Borrowed("class-methods-use-this"),
+            Self::Eqeqeq(_) => Cow::Borrowed("eqeqeq"),
             Self::FuncStyle(_) => Cow::Borrowed("func-style"),
             Self::MaxNestedCallbacks(_) => Cow::Borrowed("max-nested-callbacks"),
             Self::MaxStatements(_) => Cow::Borrowed("max-statements"),
